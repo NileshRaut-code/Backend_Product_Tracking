@@ -64,7 +64,7 @@
             // const order_id = document.getElementById("orderid").value;
             // console.log(order_id);
         
-             socket = new io("https://product-tracking-ruddy.vercel.app");
+             socket = new io("https://backend-product-tracking.vercel.app");
             const order_id = [123,1234]
             console.log("Sending data to the server...");
             socket.emit('register_delivery_guy', order_id);
