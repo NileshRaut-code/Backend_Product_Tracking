@@ -1,102 +1,104 @@
 import express from "express";
-import http from "http"
-import { Server } from 'socket.io';
+import http from "http";
+import { Server } from "socket.io";
 import path from "path";
 import cors from "cors";
-import { console } from "inspector";
-import redis,{createClient} from "redis"
-const app=express()
-const server = http.createServer(app)
-const io=new Server(server ,{
-    cors: {
-        origin: "https://product-tracking-ruddy.vercel.app",
-        methods: ["GET", "POST"]
-      }
-  })
-  const client = createClient({url:process.env.R_URL ,password:"process.env.R_PASS"})
-  client.on('error', (err) => console.log('Redis Client Error', err));
-const __dirname = path.resolve(path.dirname(''));
+import { createClient } from "redis";
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "https://product-tracking-ruddy.vercel.app",
+    methods: ["GET", "POST"]
+  }
+});
+
+const client = createClient({
+  url: process.env.R_URL,
+  password: process.env.R_PASS
+});
+
+client.on("error", (err) => console.error("Redis Client Error", err));
+
+const __dirname = path.resolve();
 
 app.use(express.json());
+app.use(cors());
+
 app.post("/send", async (req, res) => {
-    console.log(req.body);
-    
-    const name = req.body.name;
-    const year = req.body.year;
-    const language = req.body.language;
+  const { name, year, language } = req.body;
 
-    try {
-        await client.lPush("data", JSON.stringify({ name, year, language }));
-        res.status(200).send("Submission received and stored.");
-    } catch (error) {
-        console.error("Redis error:", error);
-        res.status(500).send("Failed to store submission.");
-    }
-});
-app.get('/user', (req, res) => {
-    res.sendFile(__dirname + '/public/user.html');
-});
-app.get('/chatbot', (req, res) => {
-    res.sendFile(__dirname + '/public/chat-bot.html');
-});
-app.get('/deliver', (req, res) => {
-    res.sendFile(__dirname + '/public/delivery.html');
+  try {
+    await client.lPush("data", JSON.stringify({ name, year, language }));
+    res.status(200).send("Submission received and stored.");
+  } catch (error) {
+    console.error("Redis error:", error);
+    res.status(500).send("Failed to store submission.");
+  }
 });
 
-const delivery_Guys={}
-const user_socketid_order={}
-const user_Guy={}
+app.get("/user", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/user.html"));
+});
 
+app.get("/chatbot", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/chat-bot.html"));
+});
 
-io.on('connection',(socket)=>{
-    console.log(socket.id,"COnnected USer");
+app.get("/deliver", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/delivery.html"));
+});
 
-    socket.on("register_delivery_guy",(orders)=>{
-        delivery_Guys[socket.id]=orders
-    })
+const delivery_Guys = {};
+const user_socketid_order = {};
+const user_Guy = {};
 
-    socket.on("register_user",(order_id)=>{
-        user_Guy[order_id]=socket.id
-        user_socketid_order[socket.id]=order_id;
-        
-    })
+io.on("connection", (socket) => {
+  socket.on("register_delivery_guy", (orders) => {
+    delivery_Guys[socket.id] = orders;
+  });
 
-    socket.on("gpsupdate",(data)=>{
-    const {gps}=data;
+  socket.on("register_user", (order_id) => {
+    user_Guy[order_id] = socket.id;
+    user_socketid_order[socket.id] = order_id;
+  });
 
-    const orderId=delivery_Guys[socket.id]
-  
-    if(orderId){
-        orderId.map((id)=>{
-            const sid=user_Guy[id];
-            io.to(sid).emit("gps_user_recive",gps)
-        })
-       
-    }
-    })
-    
- 
+  socket.on("gpsupdate", (data) => {
+    const { gps } = data;
+    const orderId = delivery_Guys[socket.id];
 
-    socket.on('disconnect',()=>{
-        console.log("Disconnecting");
-        if(user_socketid_order[socket.id]){
-            delete user_Guy[user_socketid_order[socket.id]]
-            delete user_socketid_order[socket.id]
+    if (orderId) {
+      orderId.forEach((id) => {
+        const sid = user_Guy[id];
+        if (sid) {
+          io.to(sid).emit("gps_user_recive", gps);
         }
-        if(delivery_Guys[socket.id]){
-            delete delivery_Guys[socket.id]
-        }
-        console.log("Disconnected");
-    })
-    
-})
+      });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    if (user_socketid_order[socket.id]) {
+      delete user_Guy[user_socketid_order[socket.id]];
+      delete user_socketid_order[socket.id];
+    }
+
+    if (delivery_Guys[socket.id]) {
+      delete delivery_Guys[socket.id];
+    }
+  });
+});
 
 async function start() {
-    await client.connect()
+  try {
+    await client.connect();
     server.listen(8000, () => {
-        console.log("Server is running on port 8000");
+      console.log("Server is running on port 8000");
     });
-    
+  } catch (error) {
+    console.error("Failed to start server:", error);
+  }
 }
 
-start()
+start();
