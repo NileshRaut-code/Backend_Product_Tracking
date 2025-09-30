@@ -24,9 +24,9 @@ app.get("/user", (req, res) => {
   res.sendFile(path.join(__dirname, "public/user.html"));
 });
 
-app.get("/chatbot", (req, res) => {
-  res.sendFile(path.join(__dirname, "public/chat-bot.html"));
-});
+// app.get("/chatbot", (req, res) => {
+//   res.sendFile(path.join(__dirname, "public/chat-bot.html"));
+// });
 
 app.get("/deliver", (req, res) => {
   res.sendFile(path.join(__dirname, "public/delivery.html"));
@@ -74,7 +74,7 @@ io.on("connection", (socket) => {
 
 async function start() {
   try {
-    await client.connect();
+   // await client.connect();
     server.listen(8000, () => {
       console.log("Server is running on port 8000");
     });
