@@ -1,86 +1,76 @@
 import express from "express";
 import http from "http";
-import { Server } from "socket.io";
 import path from "path";
 import cors from "cors";
+import { WebSocketServer } from "ws";
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "https://product-tracking-ruddy.vercel.app",
-    methods: ["GET", "POST"]
-  }
-});
-
+const wss = new WebSocketServer({ server });
 
 const __dirname = path.resolve();
 
 app.use(express.json());
-app.use(cors({  origin: "https://product-tracking-ruddy.vercel.app"}));
-
+app.use(cors({ origin: "https://product-tracking-ruddy.vercel.app" }));
 
 app.get("/user", (req, res) => {
   res.sendFile(path.join(__dirname, "public/user.html"));
 });
 
-// app.get("/chatbot", (req, res) => {
-//   res.sendFile(path.join(__dirname, "public/chat-bot.html"));
-// });
-
 app.get("/deliver", (req, res) => {
   res.sendFile(path.join(__dirname, "public/delivery.html"));
 });
 
+// Storage
 const delivery_Guys = {};
 const user_socketid_order = {};
 const user_Guy = {};
 
-io.on("connection", (socket) => {
-  socket.on("register_delivery_guy", (orders) => {
-    delivery_Guys[socket.id] = orders;
-  });
+// Handle WebSocket connections
+wss.on("connection", (ws) => {
+  ws.on("message", (message) => {
+    try {
+      const data = JSON.parse(message);
 
-  socket.on("register_user", (order_id) => {
-    user_Guy[order_id] = socket.id;
-    user_socketid_order[socket.id] = order_id;
-  });
+      if (data.type === "register_delivery_guy") {
+        delivery_Guys[ws] = data.orders; // store orders for this delivery guy
+      }
 
-  socket.on("gpsupdate", (data) => {
-    const { gps } = data;
-    const orderId = delivery_Guys[socket.id];
+      if (data.type === "register_user") {
+        user_Guy[data.order_id] = ws;
+        user_socketid_order[ws] = data.order_id;
+      }
 
-    if (orderId) {
-      orderId.forEach((id) => {
-        const sid = user_Guy[id];
-        if (sid) {
-          io.to(sid).emit("gps_user_recive", gps);
+      if (data.type === "gpsupdate") {
+        const gps = data.gps;
+        const orders = delivery_Guys[ws];
+
+        if (orders) {
+          orders.forEach((id) => {
+            const userWs = user_Guy[id];
+            if (userWs && userWs.readyState === 1) {
+              userWs.send(JSON.stringify({ type: "gps_user_recive", gps }));
+            }
+          });
         }
-      });
+      }
+    } catch (e) {
+      console.error("Invalid message:", message);
     }
   });
 
-  socket.on("disconnect", () => {
-    if (user_socketid_order[socket.id]) {
-      delete user_Guy[user_socketid_order[socket.id]];
-      delete user_socketid_order[socket.id];
+  ws.on("close", () => {
+    if (user_socketid_order[ws]) {
+      delete user_Guy[user_socketid_order[ws]];
+      delete user_socketid_order[ws];
     }
 
-    if (delivery_Guys[socket.id]) {
-      delete delivery_Guys[socket.id];
+    if (delivery_Guys[ws]) {
+      delete delivery_Guys[ws];
     }
   });
 });
 
-async function start() {
-  try {
-   // await client.connect();
-    server.listen(8000, () => {
-      console.log("Server is running on port 8000");
-    });
-  } catch (error) {
-    console.error("Failed to start server:", error);
-  }
-}
-
-start();
+server.listen(8000, () => {
+  console.log("Server is running on port 8000");
+});
