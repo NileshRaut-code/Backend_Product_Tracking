@@ -3,7 +3,6 @@ import http from "http";
 import { Server } from "socket.io";
 import path from "path";
 import cors from "cors";
-import { createClient } from "redis";
 
 const app = express();
 const server = http.createServer(app);
@@ -14,29 +13,12 @@ const io = new Server(server, {
   }
 });
 
-const client = createClient({
-  url: process.env.R_URL,
-  password: process.env.R_PASS
-});
-
-client.on("error", (err) => console.error("Redis Client Error", err));
 
 const __dirname = path.resolve();
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({  origin: "https://product-tracking-ruddy.vercel.app"}));
 
-app.post("/send", async (req, res) => {
-  const { name, year, language } = req.body;
-
-  try {
-    await client.lPush("data", JSON.stringify({ name, year, language }));
-    res.status(200).send("Submission received and stored.");
-  } catch (error) {
-    console.error("Redis error:", error);
-    res.status(500).send("Failed to store submission.");
-  }
-});
 
 app.get("/user", (req, res) => {
   res.sendFile(path.join(__dirname, "public/user.html"));
