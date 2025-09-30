@@ -66,7 +66,7 @@
         return;
       }
 
-      ws = new WebSocket("wss://backend-product-tracking.vercel.app"); // change to wss://yourdomain.com when deployed
+      ws = new WebSocket("wss://producttrack-production.up.railway.app"); // change to wss://yourdomain.com when deployed
 
       ws.onopen = () => {
         const orderInput = document.getElementById("orderid").value;
