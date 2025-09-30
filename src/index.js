@@ -32,7 +32,9 @@ app.get("/user", (req, res) => {
 app.get("/deliver", (req, res) => {
   res.sendFile(path.join(__dirname, "public/delivery.html"));
 });
-
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date() });
+});
 // Storage for active connections
 const delivery_Guys = new Map(); // ws -> orders[]
 const user_socketid_order = new Map(); // ws -> order_id
