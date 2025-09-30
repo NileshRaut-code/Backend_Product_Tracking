@@ -92,7 +92,11 @@ wss.on("connection", (ws) => {
   });
 });
 
-// Start server
-server.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
+app.get("/", (req, res) => {
+  res.send("Hello Railway 🚀");
+});
+
+// Always bind to 0.0.0.0
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Server running on port ${PORT}`);
 });
