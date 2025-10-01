@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 8000;
 app.use(express.json());
 app.use(
   cors({
-    origin: "https://product-tracking-ruddy.vercel.app", // your frontend
+    origin: process.env.ORIGIN, // your frontend
   })
 );
 
